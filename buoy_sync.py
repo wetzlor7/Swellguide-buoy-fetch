@@ -147,3 +147,6 @@ for b in buoys:
 if updates:
     supabase.table("buoy_wave_data").upsert(updates, on_conflict="buoy_uuid,timestamp").execute()
     print(f"\nErfolgreich {len(updates)} Zeilen aktualisiert!")
+
+# Löscht alle Daten, die älter als 72 Stunden sind
+supabase.table("buoy_wave_data").delete().lt("timestamp", time_threshold_str).execute()
