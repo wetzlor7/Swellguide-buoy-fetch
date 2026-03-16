@@ -6,14 +6,14 @@ import xarray as xr
 import pandas as pd
 from supabase import create_client
 from datetime import datetime, timedelta, timezone
-import shutil # NEU: Um Ordner radikal zu löschen
+import shutil 
 
 supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
 def clean_val(val):
     return round(float(val), 2) if pd.notna(val) else None
 
-print("--- Starte 144h Sync (High-Res & Resilient) ---")
+print("--- Starte 144h Sync ---")
 
 buoys = supabase.table("buoys").select("*").eq("is_active", True).execute().data
 if not buoys:
@@ -33,12 +33,11 @@ for b in buoys:
     lat, lng = b["lat"], b["lon"]
     print(f"\nVerarbeite Boje: {station_id}...")
 
-    # NEU: Eigener Ordner für jede Boje
     out_dir = f"./temp_{station_id}"
-    shutil.rmtree(out_dir, ignore_errors=True) # Löscht Reste von alten Crashs
+    shutil.rmtree(out_dir, ignore_errors=True) 
     os.makedirs(out_dir, exist_ok=True)
 
-    # 1. Forecasts laden (ECMWF & GFS)
+    # 1. Forecasts laden 
     url_ecmwf = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lng}&hourly=wave_height,wave_direction,wave_period,wave_peak_period&models=ecmwf_wam&past_days=3&forecast_days=3"
     url_gfs = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lng}&hourly=wave_height,wave_direction,wave_period&models=ncep_gfswave025&past_days=3&forecast_days=3"
     
@@ -51,7 +50,6 @@ for b in buoys:
 
     merged_data = {}
     
-    # Forecast-Zeilen anlegen 
     times = ecmwf_data.get("time", [])
     for i, t_str in enumerate(times):
         if t_str < time_threshold_str:
@@ -79,9 +77,7 @@ for b in buoys:
             dataset_id="cmems_obs-ins_glo_phybgcwav_mynrt_na_irr",
             filter=f"*latest*{station_id}*.nc",
             no_directories=True,
-            output_directory=out_dir,
-            overwrite_output_data=True, # NEU: Überschreibt gnadenlos
-            force_download=True         # NEU: Erzwingt den Vorgang
+            output_directory=out_dir
         )
     except Exception as e:
         print(f"Fehler beim Download für {station_id}: {e}")
@@ -133,7 +129,6 @@ for b in buoys:
                     merged_data[t_iso]["buoy_period"] = b_period
                     merged_data[t_iso]["buoy_dir"] = b_dir
 
-                # Diffs berechnen 
                 nearest_hour = t_exact.round("h").strftime("%Y-%m-%dT%H:%M:%S") + "Z"
                 if nearest_hour in merged_data:
                     f_ref = merged_data[nearest_hour]
@@ -143,17 +138,13 @@ for b in buoys:
                         merged_data[t_iso]["diff_period"] = round(b_period - f_ref["ecmwf_peak_period"], 2)
                     if b_dir is not None and f_ref["ecmwf_dir"] is not None:
                         merged_data[t_iso]["diff_dir"] = round(b_dir - f_ref["ecmwf_dir"], 2)
-        else:
-            print(f"  -> Keine VHM0-Daten für {station_id} in diesem Zeitraum gefunden.")
     
-    updates.extend(list(merged_data.values()))
-    
-    # NEU: Am Ende der Schleife räumen wir den Ordner radikal weg!
+    # Ordner direkt nach der Verarbeitung rückstandslos löschen
     shutil.rmtree(out_dir, ignore_errors=True)
+    updates.extend(list(merged_data.values()))
 
 if updates:
     supabase.table("buoy_wave_data").upsert(updates, on_conflict="buoy_uuid,timestamp").execute()
     print(f"\nErfolgreich {len(updates)} Zeilen aktualisiert!")
 
-# Löscht alle Daten, die älter als 72 Stunden sind
 supabase.table("buoy_wave_data").delete().lt("timestamp", time_threshold_str).execute()
