@@ -79,7 +79,9 @@ for b in buoys:
             dataset_id="cmems_obs-ins_glo_phybgcwav_mynrt_na_irr",
             filter=f"*latest*{station_id}*.nc",
             no_directories=True,
-            output_directory=out_dir
+            output_directory=out_dir,
+            overwrite_output_data=True, # NEU: Überschreibt gnadenlos
+            force_download=True         # NEU: Erzwingt den Vorgang
         )
     except Exception as e:
         print(f"Fehler beim Download für {station_id}: {e}")
