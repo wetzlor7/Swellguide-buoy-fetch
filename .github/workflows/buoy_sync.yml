@@ -2,12 +2,13 @@ name: Sync Buoys and Forecast
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # Alle 30 Minuten
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # NEU: GitHub zieht nach spätestens 10 Min den Stecker
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
