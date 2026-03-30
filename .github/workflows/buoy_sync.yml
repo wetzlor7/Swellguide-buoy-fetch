@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false # Wenn eine Boje crasht, laufen die anderen weiter!
       matrix:
-        station_id: ["Faro-coast-buoy", "6200024"] # <-- HIER NEUE BOJEN HINZUFÜGEN
+        station_id: ["Faro-coast-buoy", "6200024", "Gijon-coast-buoy", "6201070", "Leixoes-coast-buoy", "Sines-coast-buoy", "6200200"] # <-- HIER NEUE BOJEN HINZUFÜGEN
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
