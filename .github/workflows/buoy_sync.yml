@@ -8,17 +8,22 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 10 # NEU: GitHub zieht nach spätestens 10 Min den Stecker
+    timeout-minutes: 5 # Max 5 Min pro einzelner Boje
+    strategy:
+      fail-fast: false # Wenn eine Boje crasht, laufen die anderen weiter!
+      matrix:
+        station_id: ["Faro-coast-buoy", "6200024"] # <-- HIER NEUE BOJEN HINZUFÜGEN
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - run: pip install copernicusmarine supabase pandas requests xarray netCDF4 h5py
-      - name: Run Script
+      - name: Run Script for ${{ matrix.station_id }}
         env:
           COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUS_USER }}
           COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUS_PASS }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          STATION_ID: ${{ matrix.station_id }} # Übergibt die aktuelle Boje ans Skript
         run: python buoy_sync.py
