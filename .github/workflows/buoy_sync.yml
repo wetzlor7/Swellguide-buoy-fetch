@@ -8,11 +8,67 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 5 # Max 5 Min pro einzelner Boje
+    timeout-minutes: 5
     strategy:
-      fail-fast: false # Wenn eine Boje crasht, laufen die anderen weiter!
+      fail-fast: false
       matrix:
-        station_id: ["Faro-coast-buoy", "6200024", "Gijon-coast-buoy", "6201070", "Leixoes-coast-buoy", "Sines-coast-buoy", "6200200"] # <-- HIER NEUE BOJEN HINZUFÜGEN
+        station_id:
+          - "Faro-coast-buoy"
+          - "6200024"
+          - "Gijon-coast-buoy"
+          - "6201070"
+          - "Leixoes-coast-buoy"
+          - "Sines-coast-buoy"
+          - "6200200"
+          - "6200044"
+          - "6200045"
+          - "6200046"
+          - "6200047"
+          - "6200081"
+          - "6200091"
+          - "6200094"
+          - "6200095"
+          - "6200105"
+          - "6200107"
+          - "6200289"
+          - "6200290"
+          - "6200293"
+          - "6200304"
+          - "6201001"
+          - "6201003"
+          - "6201005"
+          - "6201013"
+          - "6201015"
+          - "6201017"
+          - "6201019"
+          - "6201024"
+          - "6201044"
+          - "6201050"
+          - "6201053"
+          - "6201059"
+          - "6201068"
+          - "6201082"
+          - "6201085"
+          - "6201562"
+          - "6400045"
+          - "6400046"
+          - "EurogeulE13"
+          - "IL2-Finnis"
+          - "Fjaltring"
+          - "KwintebankBuoy"
+          - "IJmuidenMunitiestort2"
+          - "Nymindegab"
+          - "Schouwenbank2"
+          - "WaddenEierlandseGat"
+          - "6200059"
+          - "6200069"
+          - "6200103"
+          - "6200251"
+          - "6200252"
+          - "6200074"
+          - "6200064"
+          - "6200253"
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,5 +81,5 @@ jobs:
           COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUS_PASS }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          STATION_ID: ${{ matrix.station_id }} # Übergibt die aktuelle Boje ans Skript
+          STATION_ID: ${{ matrix.station_id }}
         run: python buoy_sync.py
