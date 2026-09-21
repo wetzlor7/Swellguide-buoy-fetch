@@ -13,6 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         station_id:
+          - "6200067"
+          - "Donostia-buoy"
           - "Faro-coast-buoy"
           - "6200024"
           - "Gijon-coast-buoy"
