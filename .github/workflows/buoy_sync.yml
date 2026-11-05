@@ -2,8 +2,14 @@ name: Sync Buoys and Forecast
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/30 * * * *'   # Live-Sync: Alle 30 Min (Aktive Bojen)
+    - cron: '15 4 * * 1'     # Probe-Run: Jeden Montag 04:15 UTC (Inaktive Bojen)
   workflow_dispatch:
+    inputs:
+      probe_mode:
+        description: 'Als Probe-Run ausführen (Inaktive Bojen aufwecken)?'
+        type: boolean
+        default: false
 
 jobs:
   update:
@@ -22,4 +28,6 @@ jobs:
           COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUS_PASS }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # Aktiviert den Probe-Modus automatisch am Montagmorgen oder per manuellem Trigger
+          PROBE_MODE: ${{ github.event.schedule == '15 4 * * 1' || github.event.inputs.probe_mode == 'true' }}
         run: python buoy_sync.py
