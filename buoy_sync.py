@@ -66,11 +66,19 @@ for b in buoys:
             }
 
     has_copernicus_data = False
-    signal.alarm(120) 
+    # 1. Timeout auf 45 Sekunden reduzieren! 
+    # (30 Bojen x 45s = max 22.5 Minuten -> sicher unter dem 55-Min-Limit)
+    signal.alarm(45) 
     try:
-        copernicusmarine.get(dataset_id="cmems_obs-ins_glo_phybgcwav_mynrt_na_irr", filter=f"*latest*{station_id}*.nc", no_directories=True, output_directory=out_dir)
+        # 2. regex statt filter nutzen, um Full-Scans des Katalogs zu verhindern
+        copernicusmarine.get(
+            dataset_id="cmems_obs-ins_glo_phybgcwav_mynrt_na_irr", 
+            regex=rf".*{station_id}.*\.nc$", 
+            no_directories=True, 
+            output_directory=out_dir
+        )
     except TimeoutException:
-        print("Timeout: Copernicus reagiert nicht in 120s.")
+        print("Timeout: Copernicus reagiert nicht in 45s.")
     except Exception as e:
         print(f"Fehler beim Download: {e}")
     finally:
@@ -119,22 +127,24 @@ for b in buoys:
 
     shutil.rmtree(out_dir, ignore_errors=True)
 
-    # WICHTIG: Upsert nur ausführen, wenn wir tatsächlich Copernicus-Daten empfangen haben.
-    # Das verhindert den Wipeout von guten, historischen Werten mit leeren Forecasts.
-    if has_copernicus_data:
-        updates = list(merged_data.values())
-        if updates:
-            supabase.table("buoy_wave_data").upsert(updates, on_conflict="buoy_uuid,timestamp").execute()
-            print(f" -> {len(updates)} Zeilen erfolgreich aktualisiert.")
-            
-            # Auto-Reaktivierung bei erfolgreichem Probe-Run
-            if is_probe_run:
-                supabase.table("buoys").update({"is_active": True}).eq("id", buoy_uuid).execute()
-                print(f"🎉 Boje {station_id} liefert wieder Daten und wurde automatisch reaktiviert!")
-    else:
-        print(f"⚠️ Keine frischen Copernicus-Daten empfangen. DB-Update übersprungen, um alte Daten zu schützen.")
+    updates = list(merged_data.values())
+    if updates:
+        if not has_copernicus_data:
+            print(f"⚠️ Kein Copernicus-Update. Speichere NUR den Open-Meteo Forecast.")
+            # Keys entfernen, damit die DB beim Upsert alte Messwerte nicht mit None überschreibt
+            for row in updates:
+                for key in ["buoy_height", "buoy_period", "buoy_dir", "diff_height", "diff_period", "diff_dir"]:
+                    row.pop(key, None)
 
-    # Isolierter Cleanup (löscht wirklich nur alte Daten dieser EINEN iterierten Boje)
+        supabase.table("buoy_wave_data").upsert(updates, on_conflict="buoy_uuid,timestamp").execute()
+        print(f" -> {len(updates)} Zeilen erfolgreich aktualisiert.")
+            
+        # Auto-Reaktivierung natürlich nur, wenn wir ECHTE Bojen-Daten haben
+        if has_copernicus_data and is_probe_run:
+            supabase.table("buoys").update({"is_active": True}).eq("id", buoy_uuid).execute()
+            print(f"🎉 Boje {station_id} liefert wieder Daten und wurde automatisch reaktiviert!")
+
+    # Isolierter Cleanup 
     supabase.table("buoy_wave_data").delete().eq("buoy_uuid", buoy_uuid).lt("timestamp", time_threshold_str).execute()
     
     time.sleep(2)
