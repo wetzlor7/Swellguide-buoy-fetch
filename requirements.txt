@@ -1,0 +1,7 @@
+copernicusmarine
+supabase
+pandas
+requests
+xarray
+netCDF4
+h5netcdf
