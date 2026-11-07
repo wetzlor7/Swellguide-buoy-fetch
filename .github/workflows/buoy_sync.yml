@@ -2,32 +2,32 @@ name: Sync Buoys and Forecast
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # Live-Sync: Alle 30 Min (Aktive Bojen)
-    - cron: '15 4 * * 1'     # Probe-Run: Jeden Montag 04:15 UTC (Inaktive Bojen)
+    - cron: '*/30 * * * *'   # Alle 30 Min (Aktive Bojen)
+    - cron: '15 4 * * 1'     # Jeden Montag (Probe-Run inaktive Bojen)
   workflow_dispatch:
     inputs:
       probe_mode:
-        description: 'Als Probe-Run ausführen (Inaktive Bojen aufwecken)?'
+        description: 'Als Probe-Run ausführen?'
         type: boolean
         default: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.12'
+          cache: 'pip'
       - name: Install Dependencies
-        run: pip install copernicusmarine supabase pandas requests xarray netCDF4 h5py
-      - name: Run Sequential Buoy Sync
+        run: pip install copernicusmarine supabase pandas requests xarray netCDF4 h5netcdf
+      - name: Run Buoy Sync
         env:
           COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUS_USER }}
           COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUS_PASS }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          # Aktiviert den Probe-Modus automatisch am Montagmorgen oder per manuellem Trigger
           PROBE_MODE: ${{ github.event.schedule == '15 4 * * 1' || github.event.inputs.probe_mode == 'true' }}
         run: python buoy_sync.py
