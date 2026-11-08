@@ -2,7 +2,7 @@ name: Sync Buoys and Forecast
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # Alle 30 Min (Aktive Bojen)
+    - cron: '0 */2 * * *'   # Alle 30 Min (Aktive Bojen)
     - cron: '15 4 * * 1'     # Jeden Montag (Probe-Run inaktive Bojen)
   workflow_dispatch:
     inputs:
