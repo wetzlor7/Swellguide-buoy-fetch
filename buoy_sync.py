@@ -88,20 +88,19 @@ def process_single_buoy(buoy):
         return f"[{name}] Keine 'latest'-Dateien gefunden."
 
     obs_rows = []
-    # 2. NetCDF-Dateien thread-safe auslesen (inkl. CANDHIS/Cerema VAVH-Unterstützung)
+    # 2. NetCDF-Dateien thread-safe auslesen (mit allen CANDHIS- & Copernicus-Variablen)
+    CANDIDATE_HEIGHT = ["VHM0", "VAVH", "VGHS", "VZMX"]
+    CANDIDATE_PERIOD = ["VTPK", "VAVT", "VTZA", "VTM02", "VTZM", "VGTA"]
+    CANDIDATE_DIR    = ["VMDR", "VPED", "VDIR"]
+
     for f in nc_files:
         try:
             df = None
             with netcdf_lock:
                 with xr.open_dataset(f) as ds:
-                    # Wellenhöhe: VHM0 (Standard) oder VAVH (Frankreich / Cerema wie Anglet)
-                    h_var = "VHM0" if "VHM0" in ds.variables else ("VAVH" if "VAVH" in ds.variables else None)
-                    p_var = "VTPK" if "VTPK" in ds.variables else ("VTZA" if "VTZA" in ds.variables else ("VTM02" if "VTM02" in ds.variables else None))
-                    d_var = "VMDR" if "VMDR" in ds.variables else ("VPED" if "VPED" in ds.variables else None)
-
-                    if h_var:
-                        wave_vars = [v for v in [h_var, p_var, d_var] if v in ds.variables]
-                        df = ds[wave_vars].to_dataframe().reset_index()
+                    available_vars = [v for v in (CANDIDATE_HEIGHT + CANDIDATE_PERIOD + CANDIDATE_DIR) if v in ds.variables]
+                    if any(h in ds.variables for h in CANDIDATE_HEIGHT):
+                        df = ds[available_vars].to_dataframe().reset_index()
 
             if df is None or df.empty:
                 continue
@@ -111,23 +110,33 @@ def process_single_buoy(buoy):
             if df[time_col].dt.tz is not None:
                 df[time_col] = df[time_col].dt.tz_localize(None)
 
-            mask = (df[time_col] >= time_threshold_naive) & (df[h_var].notna())
+            # Prüfen, ob irgendeine Höhen-Variable vorhanden ist
+            valid_h_cols = [c for c in CANDIDATE_HEIGHT if c in df.columns]
+            if not valid_h_cols:
+                continue
+
+            mask = (df[time_col] >= time_threshold_naive) & (df[valid_h_cols].notna().any(axis=1))
             df_valid = df[mask].copy()
 
             if not df_valid.empty:
                 df_valid = df_valid.drop_duplicates(subset=[time_col], keep="first")
                 for _, row in df_valid.iterrows():
-                    cleaned_h = clean_val(row.get(h_var))
-                    if cleaned_h is not None:
+                    # Erste gefundene gültige Zahl für Höhe, Periode, Richtung ermitteln
+                    val_h = next((clean_val(row.get(c)) for c in CANDIDATE_HEIGHT if c in row and clean_val(row.get(c)) is not None), None)
+                    val_p = next((clean_val(row.get(c)) for c in CANDIDATE_PERIOD if c in row and clean_val(row.get(c)) is not None), None)
+                    val_d = next((clean_val(row.get(c)) for c in CANDIDATE_DIR if c in row and clean_val(row.get(c)) is not None), None)
+
+                    if val_h is not None:
                         t_iso = row[time_col].strftime("%Y-%m-%dT%H:%M:%SZ")
                         obs_rows.append({
                             "timestamp": t_iso,
-                            "buoy_height": cleaned_h,
-                            "buoy_period": clean_val(row.get(p_var)) if p_var and p_var in row else None,
-                            "buoy_dir": clean_val(row.get(d_var)) if d_var and d_var in row else None,
+                            "buoy_height": val_h,
+                            "buoy_period": val_p,
+                            "buoy_dir": val_d,
                         })
         except Exception:
             pass
+
 
     shutil.rmtree(out_dir, ignore_errors=True)
 
