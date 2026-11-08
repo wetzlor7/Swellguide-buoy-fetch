@@ -83,13 +83,20 @@ def process_single_buoy(buoy):
 
     obs_rows = []
     # 2. NetCDF-Dateien thread-safe auslesen
+        obs_rows = []
+    # 2. NetCDF-Dateien thread-safe auslesen (inkl. CANDHIS/Cerema VAVH-Unterstützung)
     for f in nc_files:
         try:
             df = None
-            with netcdf_lock:  # <-- Verhindert Segfault / Exit Code 139
+            with netcdf_lock:
                 with xr.open_dataset(f) as ds:
-                    if "VHM0" in ds.variables:
-                        wave_vars = [v for v in ["VHM0", "VTPK", "VMDR"] if v in ds.variables]
+                    # Wellenhöhe: VHM0 (Standard) oder VAVH (Frankreich / Cerema wie Anglet)
+                    h_var = "VHM0" if "VHM0" in ds.variables else ("VAVH" if "VAVH" in ds.variables else None)
+                    p_var = "VTPK" if "VTPK" in ds.variables else ("VTZA" if "VTZA" in ds.variables else ("VTM02" if "VTM02" in ds.variables else None))
+                    d_var = "VMDR" if "VMDR" in ds.variables else ("VPED" if "VPED" in ds.variables else None)
+
+                    if h_var:
+                        wave_vars = [v for v in [h_var, p_var, d_var] if v in ds.variables]
                         df = ds[wave_vars].to_dataframe().reset_index()
 
             if df is None or df.empty:
@@ -100,20 +107,20 @@ def process_single_buoy(buoy):
             if df[time_col].dt.tz is not None:
                 df[time_col] = df[time_col].dt.tz_localize(None)
 
-            mask = (df[time_col] >= time_threshold_naive) & (df["VHM0"].notna())
+            mask = (df[time_col] >= time_threshold_naive) & (df[h_var].notna())
             df_valid = df[mask].copy()
 
             if not df_valid.empty:
                 df_valid = df_valid.drop_duplicates(subset=[time_col], keep="first")
                 for _, row in df_valid.iterrows():
-                    cleaned_h = clean_val(row.get("VHM0"))
+                    cleaned_h = clean_val(row.get(h_var))
                     if cleaned_h is not None:
                         t_iso = row[time_col].strftime("%Y-%m-%dT%H:%M:%SZ")
                         obs_rows.append({
                             "timestamp": t_iso,
                             "buoy_height": cleaned_h,
-                            "buoy_period": clean_val(row.get("VTPK")) if "VTPK" in row else None,
-                            "buoy_dir": clean_val(row.get("VMDR")) if "VMDR" in row else None,
+                            "buoy_period": clean_val(row.get(p_var)) if p_var and p_var in row else None,
+                            "buoy_dir": clean_val(row.get(d_var)) if d_var and d_var in row else None,
                         })
         except Exception:
             pass
