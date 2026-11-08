@@ -48,8 +48,14 @@ def process_single_buoy(buoy):
     station_id = buoy.get("station_id")
     buoy_uuid = buoy.get("id")
     name = buoy.get("name", station_id)
-    lat = buoy.get("latitude")
-    lng = buoy.get("longitude")
+        # VORHER:
+    # lat = buoy.get("latitude")
+    # lng = buoy.get("longitude")
+
+    # NACHHER:
+    lat = buoy.get("lat") or buoy.get("latitude")
+    lng = buoy.get("lon") or buoy.get("lng") or buoy.get("longitude")
+
 
     if not station_id or not lat or not lng:
         return f"[{name}] Übersprungen (ungültige Koordinaten / ID)."
