@@ -82,8 +82,6 @@ def process_single_buoy(buoy):
         return f"[{name}] Keine 'latest'-Dateien gefunden."
 
     obs_rows = []
-    # 2. NetCDF-Dateien thread-safe auslesen
-        obs_rows = []
     # 2. NetCDF-Dateien thread-safe auslesen (inkl. CANDHIS/Cerema VAVH-Unterstützung)
     for f in nc_files:
         try:
